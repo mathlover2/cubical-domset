@@ -53,6 +53,7 @@ fromGlobalPosition = getGlobalPosition
 
 -- Show instance for PiecePosition.
 
+showListPiecePosition :: [String]
 showListPiecePosition = ["V","W","X","Y","1","2","3","4"]
 
 {-# INLINE showListPiecePosition #-}
