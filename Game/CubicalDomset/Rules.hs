@@ -1,3 +1,5 @@
+{-# LANGUAGE ViewPatterns, PatternSynonyms #-}
+
 module Game.CubicalDomset.Rules
        where
 
@@ -8,7 +10,8 @@ import Data.Function (on)
 import Data.List ( (\\), nub, inits )
 import Control.Monad
 import Data.Monoid (All(..))
-import qualified Data.Set as Set
+import Data.Set (fromList, Set, member, unions, toList)
+import qualified Data.Set as S
 import Data.Tuple (swap)
 
 {-| Basic infrastructure -}
@@ -41,24 +44,25 @@ inner = [V,W,X,Y]
 outer = [One,Two,Three,Four]
 {-# INLINE outer #-}
 
-type Link = Set.Set PiecePosition
-toLink :: [PiecePosition] -> Set.Set PiecePosition
-toLink [x,y] = Set.fromList [x,y]
+type Link = Set PiecePosition
+toLink :: (PiecePosition,PiecePosition)
+          -> Set PiecePosition
+toLink (x,y) = fromList [x,y]
 {-# INLINE toLink #-}
 
 
-connections :: Set.Set Link
-connections = Set.fromList
-              [ toLink [x,y]
+connections :: Set Link
+connections = fromList
+              [ toLink (x,y)
               | x <- outer
-              , y <- inner] Set.\\ forbidden
+              , y <- inner] S.\\ forbidden
 
-forbidden :: Set.Set Link
-forbidden = Set.fromList
-            $ map toLink [[V,Four],[W,One],[X,Three],[Y,Two]]
+forbidden :: Set Link
+forbidden = fromList
+            $ map toLink [(V,Four),(W,One),(X,Three),(Y,Two)]
 {-# INLINE forbidden #-}
 
-isConnection = (`Set.member` connections)
+isConnection = (`member` connections)
 {-# INLINE isConnection #-}
 
 -- Yields True if the second position is obtainable by making a move
@@ -66,9 +70,7 @@ isConnection = (`Set.member` connections)
 
 isValidMove :: PlayerPosition -> PlayerPosition -> Bool
 isValidMove x1 x2
-  = let s1 = getPlayerPosition x1
-        s2 = getPlayerPosition x2
-    in  isConnection (symmDiff s1 s2)
+  = isConnection $ (symmDiff `on` getPlayerPosition) x1 x2
 
 -- Game record data. Three types are provided: a long and short
 -- format, and an abbreviated format useful for determining whether a
@@ -76,7 +78,7 @@ isValidMove x1 x2
 
 newtype GameRecord
   = GameRecord
-    {getGameRecord :: [GlobalPosition]
+    { getGameRecord :: [GlobalPosition]
     } deriving (Eq, Show)
 
 newtype ShortGameRecord
@@ -85,57 +87,54 @@ newtype ShortGameRecord
     } deriving Eq
 
 -- Try to shorten the mess below:
-
-
 class Validatable a where
   isValid :: a -> Bool
   embedMove :: GlobalPosition -> a -> a
   embedHalfMove :: PlayerPosition -> a -> a
   currentTurn :: a -> Player
   getCurrentPosition :: a -> GlobalPosition
+  getFirstPlayerPosition :: a -> PlayerPosition
+  getSecondPlayerPosition :: a -> PlayerPosition
+  getPlayersPosition :: Player -> a -> PlayerPosition
   getCurrentPlayerPosition :: a -> PlayerPosition
   getWaitingPlayerPosition :: a -> PlayerPosition
   possibleMoves :: a -> [GlobalPosition]
   hasVictory :: a -> Maybe Player
   embedHalfMove p g = embedMove (GlobalPosition x) g
     where
-      x = case (currentTurn g)
-          of Player1 -> (p,p')
-             Player2 -> (p',p)
+      x = (if currentTurn g == Player1
+           then id else swap) (p',p)
       p' = getWaitingPlayerPosition g
-  getCurrentPlayerPosition g
-    = (if currentTurn g == Player1 then fst else snd)
-      $ getGlobalPosition
-      $ getCurrentPosition g
-  getWaitingPlayerPosition g
-    = (if currentTurn g == Player1 then snd else fst)
-      $ getGlobalPosition
-      $ getCurrentPosition g
+  getFirstPlayerPosition = fst . getGlobalPosition . getCurrentPosition
+  getSecondPlayerPosition = snd . getGlobalPosition . getCurrentPosition
+  getPlayersPosition Player1 = getFirstPlayerPosition
+  getPlayersPosition Player2 = getSecondPlayerPosition
+  getCurrentPlayerPosition g = getPlayersPosition (currentTurn g) g
+  getWaitingPlayerPosition g = getPlayersPosition (switch (currentTurn g)) g
   hasVictory g
-    = let GlobalPosition x = getCurrentPosition g
-      in  case x of (x1,x2) | x1 == player2_start -> Just Player1
-                            | x2 == player1_start -> Just Player2
-                            | otherwise -> if null $ possibleMoves g
-                                           then Just (switch (currentTurn g))
-                                           else Nothing
+    | x1 == player2_start = Just Player1
+    | x2 == player1_start = Just Player2
+    | null $ possibleMoves g = Just (switch (currentTurn g))
+    | otherwise = Nothing
+    where GlobalPosition (x1,x2) = getCurrentPosition g
 
-  possibleMoves g = let otherPosition = getWaitingPlayerPosition g
-                        (piece1,piece2) = fromPlayerPosition
-                                          $ getCurrentPlayerPosition g
-                        imbed x = GlobalPosition
-                                  $(if currentTurn g == Player1 then id else swap)
-                                  $(x,otherPosition)
-                        goingFrom p = Set.toList
-                                      $ Set.unions
-                                      $ Set.toList
-                                      $ Set.map (Set.\\ (Set.singleton p))
-                                      $ Set.filter (p `Set.member`) connections
-                        rawMoves = map imbed $
-                                   [toPlayerPosition x1 piece2
-                                   | x1 <- goingFrom piece1]
-                                   ++ [toPlayerPosition piece1 x2
-                                      | x2 <- goingFrom piece2]
-                    in  filter (isValid . (flip embedMove g)) rawMoves
+  possibleMoves g =
+    let otherPosition = getWaitingPlayerPosition g
+        (piece1,piece2) = fromPlayerPosition $ getCurrentPlayerPosition g
+        imbed x = GlobalPosition
+                  $(if currentTurn g == Player1 then id else swap)
+                  $(x,otherPosition)
+        goingFrom p = toList
+                      $ unions
+                      $ toList
+                      $ S.map (S.\\ (S.singleton p))
+                      $ S.filter (p `member`) connections
+        rawMoves = map imbed $
+                   [toPlayerPosition x1 piece2
+                   | x1 <- goingFrom piece1]
+                   ++ [toPlayerPosition piece1 x2
+                      | x2 <- goingFrom piece2]
+    in  filter (isValid . (flip embedMove g)) rawMoves
 
 instance Validatable GameRecord where
   isValid (GameRecord x) = condition_1 x
@@ -195,7 +194,7 @@ condition_3 = isUnique
 condition_4 :: [GlobalPosition] -> Bool
 condition_4 = getAll . foldMap (All . disjoint)
   where disjoint (GlobalPosition x)
-          = Set.null $ uncurry (Set.intersection `on` getPlayerPosition) x
+          = S.null $ uncurry (S.intersection `on` getPlayerPosition) x
 
 -- Helper functions for this section.
 
@@ -203,9 +202,9 @@ isUnique :: (Eq a) => [a] -> Bool
 isUnique l = all doesNotContain (zip (inits l) l)
   where doesNotContain = uncurry (flip notElem)
 
-symmDiff :: (Eq a, Ord a) => Set.Set a -> Set.Set a -> Set.Set a
+symmDiff :: (Eq a, Ord a) => Set a -> Set a -> Set a
 symmDiff set1 set2 =
-  (Set.union set1 set2) Set.\\ (Set.intersection set1 set2)
+  (S.union set1 set2) S.\\ (S.intersection set1 set2)
 
 mapTwist :: (((a,a),(a,a)) -> b) -> [((a,a),(a,a))] -> [b]
 mapTwist _ [] = []

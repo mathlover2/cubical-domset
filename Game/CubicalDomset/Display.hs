@@ -1,5 +1,8 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
+module Game.CubicalDomset.Display
+       where
+
 import Game.CubicalDomset.Notation
 import Game.CubicalDomset.Rules hiding (inner, outer)
 import qualified Game.CubicalDomset.Gameplay as Gameplay (inner,outer)
