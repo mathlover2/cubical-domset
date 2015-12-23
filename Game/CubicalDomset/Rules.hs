@@ -110,7 +110,7 @@ class Validatable a where
   hasVictory :: a -> Maybe Player
 
   embedHalfMove p g = embedMove (GlobalPosition x) g
-    where x = imbed id (currentTurn g == Player1)
+    where x = imbed swap (currentTurn g == Player1)
               (getWaitingPlayerPosition g) p
 
   getFirstPlayerPosition = fst . getGlobalPosition . getCurrentPosition
