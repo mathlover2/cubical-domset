@@ -16,6 +16,8 @@ playGameWithTwo g
 makeMove :: GameRecord -> IO GameRecord
 makeMove l
   = do putStrLn $ "Enter a move, " ++ (show (currentTurn l)) ++ ":"
+       putStrLn $ "Move must be of the form [piece1,piece2],\n"
+                   ++ "e.g, \"[V,W]\", not \"VW\""
        x <- fmap read getLine
        let lnew = (embedHalfMove
                    (PlayerPosition (fromList x))
