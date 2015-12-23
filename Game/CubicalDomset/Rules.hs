@@ -132,7 +132,7 @@ class Validatable a where
 
   possibleMoves g =
     let otherPosition = getWaitingPlayerPosition g
-        (piece1,piece2) = fromPlayerPosition $ getCurrentPlayerPosition g
+        PlayerPositionOf piece1 piece2 = getCurrentPlayerPosition g
         imbed' x = imbed GlobalPosition (currentTurn g == Player1)
                    x otherPosition
         goingFrom p = toList
@@ -225,3 +225,4 @@ mapTwist f (l0:ls)
 
 imbed f b a1 a2
   = f $ (if b then id else swap) (a1,a2)
+{-# INLINE imbed #-}
