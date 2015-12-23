@@ -5,7 +5,7 @@ module Game.CubicalDomset.Display
 
 import Game.CubicalDomset.Notation
 import Game.CubicalDomset.Rules hiding (inner, outer)
-import qualified Game.CubicalDomset.Gameplay as Gameplay (inner,outer)
+import qualified Game.CubicalDomset.Rules as Gameplay (inner,outer)
 
 import Diagrams.Prelude
 import Data.List ((\\))
