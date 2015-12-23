@@ -7,10 +7,12 @@ import Game.CubicalDomset.Notation
 
 import Data.Foldable (foldMap)
 import Data.Function (on)
-import Data.List ( (\\), nub, inits )
+import Data.List (nub, inits)
 import Control.Monad
 import Data.Monoid (All(..))
-import Data.Set (fromList, Set, member, unions, toList)
+import Data.Set (empty, fromList, Set,
+                 member, intersection, union,
+                 toList, singleton, (\\))
 import qualified Data.Set as S
 import Data.Tuple (swap)
 
@@ -23,6 +25,7 @@ data Player = Player1 | Player2 deriving (Eq, Enum, Ord, Read, Show)
 switch :: Player -> Player
 switch Player1 = Player2
 switch Player2 = Player1
+{-# INLINE switch #-}
 
 -- Starting position and victory condition tests.
 
@@ -31,6 +34,11 @@ player1_start = toPlayerPosition V W
 player2_start = toPlayerPosition X Y
 {-# INLINE player1_start #-}
 {-# INLINE player2_start #-}
+
+pattern Player1Start <- player1_start
+pattern Player2Start <- player2_start
+pattern GlobalPositionOf p1 p2 = GlobalPosition (p1,p2)
+pattern PlayerPositionOf x y <- (fromPlayerPosition -> (x,y))
 
 start :: GlobalPosition
 start = toGlobalPosition player1_start player2_start
@@ -55,7 +63,7 @@ connections :: Set Link
 connections = fromList
               [ toLink (x,y)
               | x <- outer
-              , y <- inner] S.\\ forbidden
+              , y <- inner] \\ forbidden
 
 forbidden :: Set Link
 forbidden = fromList
@@ -100,36 +108,38 @@ class Validatable a where
   getWaitingPlayerPosition :: a -> PlayerPosition
   possibleMoves :: a -> [GlobalPosition]
   hasVictory :: a -> Maybe Player
+
   embedHalfMove p g = embedMove (GlobalPosition x) g
-    where
-      x = (if currentTurn g == Player1
-           then id else swap) (p',p)
-      p' = getWaitingPlayerPosition g
+    where x = imbed id (currentTurn g == Player1)
+              (getWaitingPlayerPosition g) p
+
   getFirstPlayerPosition = fst . getGlobalPosition . getCurrentPosition
   getSecondPlayerPosition = snd . getGlobalPosition . getCurrentPosition
+
   getPlayersPosition Player1 = getFirstPlayerPosition
   getPlayersPosition Player2 = getSecondPlayerPosition
+
   getCurrentPlayerPosition g = getPlayersPosition (currentTurn g) g
   getWaitingPlayerPosition g = getPlayersPosition (switch (currentTurn g)) g
-  hasVictory g
-    | x1 == player2_start = Just Player1
-    | x2 == player1_start = Just Player2
-    | null $ possibleMoves g = Just (switch (currentTurn g))
-    | otherwise = Nothing
-    where GlobalPosition (x1,x2) = getCurrentPosition g
+
+  hasVictory (getCurrentPosition -> GlobalPosition (Player2Start,_))
+    = Just Player1
+  hasVictory (getCurrentPosition -> GlobalPosition (_,Player1Start))
+    = Just Player2
+  hasVictory g = if null (possibleMoves g)
+                 then Just $ switch $ currentTurn g
+                 else Nothing
 
   possibleMoves g =
     let otherPosition = getWaitingPlayerPosition g
         (piece1,piece2) = fromPlayerPosition $ getCurrentPlayerPosition g
-        imbed x = GlobalPosition
-                  $(if currentTurn g == Player1 then id else swap)
-                  $(x,otherPosition)
+        imbed' x = imbed GlobalPosition (currentTurn g == Player1)
+                   x otherPosition
         goingFrom p = toList
-                      $ unions
-                      $ toList
-                      $ S.map (S.\\ (S.singleton p))
+                      $ S.foldl union empty
+                      $ S.map (\\ (singleton p))
                       $ S.filter (p `member`) connections
-        rawMoves = map imbed $
+        rawMoves = map imbed' $
                    [toPlayerPosition x1 piece2
                    | x1 <- goingFrom piece1]
                    ++ [toPlayerPosition piece1 x2
@@ -137,10 +147,11 @@ class Validatable a where
     in  filter (isValid . (flip embedMove g)) rawMoves
 
 instance Validatable GameRecord where
-  isValid (GameRecord x) = condition_1 x
-                           && condition_2 x
-                           && condition_3 x
-                           && condition_4 x
+  isValid (GameRecord x) = and $ map ($ x)
+                           [condition_1,
+                            condition_2,
+                            condition_3,
+                            condition_4]
   embedMove x (GameRecord m) = GameRecord (m++[x])
   currentTurn (GameRecord x) = toEnum $ ((length x)+1) `mod` 2
   getCurrentPosition (GameRecord x) = last x
@@ -194,9 +205,9 @@ condition_3 = isUnique
 condition_4 :: [GlobalPosition] -> Bool
 condition_4 = getAll . foldMap (All . disjoint)
   where disjoint (GlobalPosition x)
-          = S.null $ uncurry (S.intersection `on` getPlayerPosition) x
+          = S.null $ uncurry (intersection `on` getPlayerPosition) x
 
--- Helper functions for this section.
+-- Helper functions for this module.
 
 isUnique :: (Eq a) => [a] -> Bool
 isUnique l = all doesNotContain (zip (inits l) l)
@@ -204,8 +215,13 @@ isUnique l = all doesNotContain (zip (inits l) l)
 
 symmDiff :: (Eq a, Ord a) => Set a -> Set a -> Set a
 symmDiff set1 set2 =
-  (S.union set1 set2) S.\\ (S.intersection set1 set2)
+  (union set1 set2) \\ (intersection set1 set2)
 
 mapTwist :: (((a,a),(a,a)) -> b) -> [((a,a),(a,a))] -> [b]
 mapTwist _ [] = []
-mapTwist f (l0:ls) = f l0 : mapTwist f (map (\(x,y) -> (swap x,swap y)) ls)
+mapTwist f (l0:ls)
+  = f l0 : mapTwist f (map (\(x,y) -> (swap x,swap y)) ls)
+
+
+imbed f b a1 a2
+  = f $ (if b then id else swap) (a1,a2)
