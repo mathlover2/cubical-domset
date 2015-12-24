@@ -1,6 +1,7 @@
 module Game.CubicalDomset.AI
        where
 
+import Game.CubicalDomset.Gamespace
 import Game.CubicalDomset.Notation
 import Game.CubicalDomset.Rules
 import System.Random
