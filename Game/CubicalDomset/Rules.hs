@@ -35,8 +35,8 @@ player2_start = toPlayerPosition X Y
 {-# INLINE player1_start #-}
 {-# INLINE player2_start #-}
 
-pattern Player1Start <- player1_start
-pattern Player2Start <- player2_start
+pattern Player1Start <- ((== player1_start) -> True)
+pattern Player2Start <- ((== player2_start) -> True)
 pattern GlobalPositionOf p1 p2 = GlobalPosition (p1,p2)
 pattern PlayerPositionOf x y <- (fromPlayerPosition -> (x,y))
 
