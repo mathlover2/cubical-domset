@@ -19,6 +19,7 @@ library
   exposed-modules: Game.CubicalDomset.Notation
                  , Game.CubicalDomset.Rules
                  , Game.CubicalDomset.Display
+                 , Game.CubicalDomset.Gamespace
   -- other-modules:       
   -- other-extensions:    
   build-depends:       base >=4.7 && <4.8

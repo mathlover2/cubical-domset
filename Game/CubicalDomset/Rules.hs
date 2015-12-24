@@ -60,10 +60,7 @@ toLink (x,y) = fromList [x,y]
 
 
 connections :: Set Link
-connections = fromList
-              [ toLink (x,y)
-              | x <- outer
-              , y <- inner] \\ forbidden
+connections = fromList [fromList [V,One],fromList [V,Two],fromList [V,Three],fromList [W,Two],fromList [W,Three],fromList [W,Four],fromList [X,One],fromList [X,Two],fromList [X,Four],fromList [Y,One],fromList [Y,Three],fromList [Y,Four]]
 
 forbidden :: Set Link
 forbidden = fromList
