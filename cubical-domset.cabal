@@ -31,3 +31,4 @@ executable cubicaldomset
   build-depends:  base >=4.7 && <4.8
                 , containers >=0.5
                 , diagrams-lib
+                , random

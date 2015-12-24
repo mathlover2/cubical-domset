@@ -1,9 +1,13 @@
 import Game.CubicalDomset.Rules
 import Game.CubicalDomset.Notation
 import Game.CubicalDomset.AI
+import System.Environment (getArgs)
 import Data.Set (fromList)
 
-main = playGameWithTwo (GameRecord [start])
+main = do x <- getArgs
+          if x == ["-a"]
+            then playGameWithAI randomMove (GameRecord [start]) True
+            else playGameWithTwo (GameRecord [start])
 
 
 playGameWithTwo g
@@ -41,7 +45,14 @@ analyzeMove l
                return True
 
 
--- Playing with an AI.
 
--- playGameWithAI :: CubicalDomsetAI -> GameRecord -> IO
--- playGameWithAI ai = makeMoveWithAI ai (GameRecord [start])
+playGameWithAI :: CubicalDomsetAI
+               -> GameRecord
+               -> Bool -- is AI the current player?
+               -> IO ()
+playGameWithAI ai g b
+  = do x <- (if b then ai else makeMove) g
+       canContinue <- analyzeMove x
+       if canContinue
+         then playGameWithAI ai x (not b)
+         else return () 
