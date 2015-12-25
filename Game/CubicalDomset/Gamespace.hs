@@ -7,7 +7,7 @@ import Game.CubicalDomset.Notation
 successors :: GameRecord -> [GameRecord]
 successors g = map (flip embedMove g) (possibleMoves g)
 
-predecessor (GameRecord x b)= GameRecord (init x) (not b)
+predecessor = GameRecord . init . getGameRecord
 
 listOfAllGamesOf :: GameRecord -> [GameRecord]
 listOfAllGamesOf g = analyzeGames g
@@ -19,4 +19,4 @@ listOfAllGamesOf g = analyzeGames g
 
 progressionsFrom g = iterate (concat . map successors) [g]
 
-listOfAllGames = listOfAllGamesOf (GameRecord [start] True)
+listOfAllGames = listOfAllGamesOf (GameRecord [start])

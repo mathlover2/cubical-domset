@@ -6,8 +6,8 @@ import Data.Set (fromList)
 
 main = do x <- getArgs
           if x == ["-a"]
-            then playGameWithAI randomMove (GameRecord [start] True) True
-            else playGameWithTwo (GameRecord [start] True)
+            then playGameWithAI randomMove (GameRecord [start]) True
+            else playGameWithTwo (GameRecord [start])
 
 
 playGameWithTwo g
