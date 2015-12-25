@@ -20,3 +20,9 @@ listOfAllGamesOf g = analyzeGames g
 progressionsFrom g = iterate (concat . map successors) [g]
 
 listOfAllGames = listOfAllGamesOf (GameRecord [start])
+
+localImage fwd bwd
+  = concat
+    . map (\x -> progressionsFrom x !! fwd)
+    . return
+    . (\x -> iterate predecessor x !! bwd)
