@@ -85,8 +85,8 @@ goingFrom Three = [V,W,Y]
 goingFrom Four = [W,X,Y]
 
 listOfPositions piece1 piece2
-  =  [toPlayerPosition x1 piece2 | x1 <- goingFrom piece1]
-     ++ [toPlayerPosition piece1 x2 | x2 <- goingFrom piece2]
+  =  [toPlayerPosition x1 piece2 | x1 <- goingFrom piece1, x1 /= piece2]
+     ++ [toPlayerPosition piece1 x2 | x2 <- goingFrom piece2, x2 /= piece1]
 
 {-# INLINABLE listOfPositions #-}
 
@@ -115,9 +115,10 @@ isValidMove p1 p2
 -- format, and an abbreviated format useful for determining whether a
 -- position violates the "no-repeat" rule.
 
-newtype GameRecord
+data GameRecord
   = GameRecord
     { getGameRecord :: [GlobalPosition]
+    , isFirstPlayerTurn :: !Bool
     } deriving (Eq, Show)
 
 newtype ShortGameRecord
@@ -170,14 +171,14 @@ class Validatable a where
     in  filter (isValid . (flip embedMove g)) rawMoves
 
 instance Validatable GameRecord where
-  isValid (GameRecord x) = and $ map ($ x)
+  isValid (GameRecord x _) = and $ map ($ x)
                            [condition_1,
                             condition_2,
                             condition_3,
                             condition_4]
-  embedMove x (GameRecord m) = GameRecord (m++[x])
-  currentTurn (GameRecord x) = toEnum $ ((length x)+1) `mod` 2
-  getCurrentPosition (GameRecord x) = last x
+  embedMove x (GameRecord m b) = GameRecord (m++[x]) (not b)
+  currentTurn (GameRecord _ b) = if b then Player1 else Player2
+  getCurrentPosition (GameRecord x _) = last x
 
 instance Validatable ShortGameRecord where
   isValid x = let re = getShortGameRecord x
@@ -194,7 +195,7 @@ instance Validatable ShortGameRecord where
       $ (last (init x),last x)
 -- Conditions for testing validity.
 
--- Condition 1: The head of a game record must be the start position.
+-- Condition 1: The first position in a game record must be the start position.
 
 condition_1 = (== start) . head
 {-# INLINE condition_1 #-}
