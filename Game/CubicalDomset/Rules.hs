@@ -7,7 +7,7 @@ import Game.CubicalDomset.Notation
 
 import Data.Foldable (foldMap)
 import Data.Function (on)
-import Data.List (nub, inits)
+import Data.List (nub, inits, sort)
 import Control.Monad
 import Data.Monoid (All(..))
 import Data.Set (empty, fromList, Set,
@@ -82,11 +82,11 @@ isConnection = (`member` connections)
 
 isValidMove :: PlayerPosition -> PlayerPosition -> Bool
 isValidMove p1 p2
-  = isConnection $ uncurry toPlayerPosition $ symm_diff p1 p2
-  where symm_diff p1 p2
-          = head [(a,b)| a <- [x,y], b <- [x',y'], a == b]
-          where (x,y) = fromPlayerPosition p1
-                (x',y') = fromPlayerPosition p2
+  = case (fromPlayerPosition p1,fromPlayerPosition p2)
+    of   ((a,b),(c,d)) | isUnique [a,b,c,d] -> False
+                       | [x,y] <- removeDuplicates [a,b,c,d]
+                         -> isConnection (toPlayerPosition x y)
+                       | otherwise -> False
 
 -- Game record data. Three types are provided: a long and short
 -- format, and an abbreviated format useful for determining whether a
@@ -212,14 +212,14 @@ condition_3 = isUnique
 
 {-# INLINE condition_3 #-}
 
-{- Condition 4: No two pieces in a move have the same position-}
+{- Condition 4: No two pieces in a move have the same position. -}
 
 condition_4 :: [GlobalPosition] -> Bool
 condition_4 = getAll . foldMap (All . disjoint)
   where disjoint (GlobalPosition (p1,p2)) =
           case (fromPlayerPosition p1,fromPlayerPosition p2)
           of ((a,b),(c,d)) -> isUnique [a,b,c,d]
-
+              
 -- Helper functions for this module.
 
 isUnique :: (Eq a) => [a] -> Bool
@@ -248,3 +248,11 @@ remove conn piece
 imbed f b a1 a2
   = f $ (if b then id else swap) (a1,a2)
 {-# INLINE imbed #-}
+
+removeDuplicates = f . sort
+  where f [] = []
+        f [a,b] | a == b = []
+        f (a:b:c:xs) | a == b && b == c = f (b:c:xs)
+                     | a == b && b /= c = f (c:xs)
+                     | a /= b           = a : f (b:c:xs)
+        f x = x 
