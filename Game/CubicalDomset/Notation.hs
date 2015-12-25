@@ -8,7 +8,6 @@ module Game.CubicalDomset.Notation
        , fromGlobalPosition)
        where
 
-import qualified Data.Set as Set
 import Data.List (elemIndex)
 import Text.Read
 
@@ -20,7 +19,7 @@ data PiecePosition = V | W | X | Y
 
 -- Player position datatype : defined as unordered pair of piece positions
 
-data PlayerPosition = PlayerPosition PiecePosition PiecePosition deriving Ord
+data PlayerPosition = PlayerPosition !PiecePosition !PiecePosition deriving Ord
 
 -- Convert to and from player positions and pairs of piece positions.
 
@@ -51,20 +50,28 @@ fromGlobalPosition = getGlobalPosition
 
 -- Show instance for PiecePosition.
 
-showListPiecePosition :: [String]
-showListPiecePosition = ["V","W","X","Y","1","2","3","4"]
+showListPiecePosition :: Int -> String
+showListPiecePosition 0 = "V"
+showListPiecePosition 1 = "W"
+showListPiecePosition 2 = "X"
+showListPiecePosition 3 = "Y"
+showListPiecePosition 4 = "1"
+showListPiecePosition 5 = "2"
+showListPiecePosition 6 = "3"
+showListPiecePosition 7 = "4"
 
 {-# INLINE showListPiecePosition #-}
 
 instance Show PiecePosition where
-  show = (showListPiecePosition !!) . fromEnum
+  show = showListPiecePosition . fromEnum
 
 -- Read instance for PiecePosition.
 
 instance Read PiecePosition where
   readsPrec _ r = do (s,rem) <- lex r
-                     let Just k = elemIndex s showListPiecePosition
+                     let Just k = elemIndex s l
                      return ((toEnum k),rem)
+    where l = map (:[]) "VWXY1234"
 
 instance Show GlobalPosition where
   show = show . getGlobalPosition 

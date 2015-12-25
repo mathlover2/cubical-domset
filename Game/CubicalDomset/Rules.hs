@@ -41,7 +41,7 @@ pattern GlobalPositionOf p1 p2 = GlobalPosition (p1,p2)
 pattern PlayerPositionOf x y <- (fromPlayerPosition -> (x,y))
 
 start :: GlobalPosition
-start = toGlobalPosition player1_start player2_start
+start = GlobalPosition (player1_start, player2_start)
 {-# INLINE start #-}
 
 -- Connections between positions. A position is accessible to another
@@ -59,16 +59,6 @@ toLink :: (PiecePosition,PiecePosition)
 toLink = uncurry toPlayerPosition
 {-# INLINE toLink #-}
 
-
-connections :: Set Link
-connections = fromList [toLink (V,One),toLink (V,Two),
-                        toLink (V,Three),toLink (W,Two),
-                        toLink (W,Three),toLink (W,Four),
-                        toLink (X,One),toLink (X,Two),
-                        toLink (X,Four),toLink (Y,One),
-                        toLink (Y,Three),toLink (Y,Four)]
-{-# INLINE connections #-}
-
 forbidden :: Set Link
 forbidden = fromList
             $ map toLink [(V,Four),(W,One),(X,Three),(Y,Two)]
@@ -85,8 +75,8 @@ goingFrom Three = [V,W,Y]
 goingFrom Four = [W,X,Y]
 
 listOfPositions piece1 piece2
-  =  [toPlayerPosition x1 piece2 | x1 <- goingFrom piece1]
-     ++ [toPlayerPosition piece1 x2 | x2 <- goingFrom piece2]
+  =  [toPlayerPosition x1 piece2 | x1 <- goingFrom piece1, x1 /= piece2 ]
+     ++ [toPlayerPosition piece1 x2 | x2 <- goingFrom piece2, x2 /= piece1 ]
 
 {-# INLINABLE listOfPositions #-}
 
@@ -95,9 +85,11 @@ listOfPositions piece1 piece2
 
 
 isConnection p
-  | (x,y) <- fromPlayerPosition p = x `elem` inner
-                                    && y `elem` outer
-                                    && p `notMember` forbidden
+  = case fromPlayerPosition p
+    of (x,y) -> x `elem` inner
+                && y `elem` outer
+                && p `notMember` forbidden
+
 {-# INLINE isConnection #-}
 
 -- Yields True if the second position is obtainable by making a move
@@ -115,9 +107,10 @@ isValidMove p1 p2
 -- format, and an abbreviated format useful for determining whether a
 -- position violates the "no-repeat" rule.
 
-newtype GameRecord
+data GameRecord
   = GameRecord
     { getGameRecord :: [GlobalPosition]
+    , isFirstPlayerTurn :: Bool
     } deriving (Eq, Show)
 
 newtype ShortGameRecord
@@ -170,14 +163,14 @@ class Validatable a where
     in  filter (isValid . (flip embedMove g)) rawMoves
 
 instance Validatable GameRecord where
-  isValid (GameRecord x) = and $ map ($ x)
-                           [condition_1,
-                            condition_2,
-                            condition_3,
-                            condition_4]
-  embedMove x (GameRecord m) = GameRecord (m++[x])
-  currentTurn (GameRecord x) = toEnum $ ((length x)+1) `mod` 2
-  getCurrentPosition (GameRecord x) = last x
+  isValid (GameRecord x _) = and $ map ($ x)
+                             [condition_1,
+                              condition_2,
+                              condition_3,
+                              condition_4]
+  embedMove x (GameRecord m b) = GameRecord (x:m) (not b)
+  currentTurn (GameRecord _ b) = if b then Player1 else Player2
+  getCurrentPosition (GameRecord x _) = head x
 
 instance Validatable ShortGameRecord where
   isValid x = let re = getShortGameRecord x
@@ -251,14 +244,16 @@ mapTwist f (l0:ls)
   = f l0 : mapTwist f (map (\(x,y) -> (swap x,swap y)) ls)
 
 inConnection piece conn
-  = let (x,y) = fromPlayerPosition conn
-    in  piece == x || piece == y
+  = case fromPlayerPosition conn
+    of (x,y) -> piece == x || piece == y
+{-# INLINE inConnection #-}
 
 remove conn piece
   = case fromPlayerPosition conn
     of (x,y) | x == piece -> singleton y
              | y == piece -> singleton x
              | otherwise -> fromList [x,y]
+{-# INLINE remove #-}
 
 imbed f b a1 a2
   = f $ (if b then id else swap) (a1,a2)
