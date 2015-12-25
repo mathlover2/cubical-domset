@@ -25,6 +25,7 @@ library
   build-depends:       base >=4.7 && <4.8
                      , containers >=0.5
                      , diagrams-lib
+                     , random >= 1.1
   -- hs-source-dirs:      
 
 executable cubicaldomset
@@ -33,3 +34,4 @@ executable cubicaldomset
                 , containers >=0.5
                 , diagrams-lib
                 , random
+                , random >= 1.1

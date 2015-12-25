@@ -52,15 +52,22 @@ inner = [V,W,X,Y]
 outer = [One,Two,Three,Four]
 {-# INLINE outer #-}
 
-type Link = Set PiecePosition
+type Link = PlayerPosition
+
 toLink :: (PiecePosition,PiecePosition)
-          -> Set PiecePosition
-toLink (x,y) = fromList [x,y]
+          -> Link
+toLink = uncurry toPlayerPosition
 {-# INLINE toLink #-}
 
 
 connections :: Set Link
-connections = fromList [fromList [V,One],fromList [V,Two],fromList [V,Three],fromList [W,Two],fromList [W,Three],fromList [W,Four],fromList [X,One],fromList [X,Two],fromList [X,Four],fromList [Y,One],fromList [Y,Three],fromList [Y,Four]]
+connections = fromList [toLink (V,One),toLink (V,Two),
+                        toLink (V,Three),toLink (W,Two),
+                        toLink (W,Three),toLink (W,Four),
+                        toLink (X,One),toLink (X,Two),
+                        toLink (X,Four),toLink (Y,One),
+                        toLink (Y,Three),toLink (Y,Four)]
+{-# INLINE connections #-}
 
 forbidden :: Set Link
 forbidden = fromList
@@ -74,8 +81,12 @@ isConnection = (`member` connections)
 -- from the first.
 
 isValidMove :: PlayerPosition -> PlayerPosition -> Bool
-isValidMove x1 x2
-  = isConnection $ (symmDiff `on` getPlayerPosition) x1 x2
+isValidMove p1 p2
+  = isConnection $ uncurry toPlayerPosition $ symm_diff p1 p2
+  where symm_diff p1 p2
+          = head [(a,b)| a <- [x,y], b <- [x',y'], a == b]
+          where (x,y) = fromPlayerPosition p1
+                (x',y') = fromPlayerPosition p2
 
 -- Game record data. Three types are provided: a long and short
 -- format, and an abbreviated format useful for determining whether a
@@ -134,8 +145,8 @@ class Validatable a where
                    x otherPosition
         goingFrom p = toList
                       $ S.foldl union empty
-                      $ S.map (\\ (singleton p))
-                      $ S.filter (p `member`) connections
+                      $ S.map (`remove` p)
+                      $ S.filter (p `inConnection`) connections
         rawMoves = map imbed' $
                    [toPlayerPosition x1 piece2
                    | x1 <- goingFrom piece1]
@@ -194,15 +205,20 @@ condition_2 = and
 --   where swap (GlobalPosition (x,y)) = GlobalPosition (y,x)
 --
 
+{- Condition 3 : All positions are unique -}
+
 condition_3 :: (Eq a) => [a] -> Bool
 condition_3 = isUnique
 
 {-# INLINE condition_3 #-}
 
+{- Condition 4: No two pieces in a move have the same position-}
+
 condition_4 :: [GlobalPosition] -> Bool
 condition_4 = getAll . foldMap (All . disjoint)
-  where disjoint (GlobalPosition x)
-          = S.null $ uncurry (intersection `on` getPlayerPosition) x
+  where disjoint (GlobalPosition (p1,p2)) =
+          case (fromPlayerPosition p1,fromPlayerPosition p2)
+          of ((a,b),(c,d)) -> isUnique [a,b,c,d]
 
 -- Helper functions for this module.
 
@@ -219,6 +235,15 @@ mapTwist _ [] = []
 mapTwist f (l0:ls)
   = f l0 : mapTwist f (map (\(x,y) -> (swap x,swap y)) ls)
 
+inConnection piece conn
+  = let (x,y) = fromPlayerPosition conn
+    in  piece == x || piece == y
+
+remove conn piece
+  = case fromPlayerPosition conn
+    of (x,y) | x == piece -> singleton y
+             | y == piece -> singleton x
+             | otherwise -> fromList [x,y]
 
 imbed f b a1 a2
   = f $ (if b then id else swap) (a1,a2)

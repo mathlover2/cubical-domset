@@ -23,9 +23,7 @@ makeMove l
        putStrLn $ "Move must be of the form [piece1,piece2],\n"
                    ++ "e.g, \"[V,W]\", not \"VW\""
        x <- fmap read getLine
-       let lnew = (embedHalfMove
-                   (PlayerPosition (fromList x))
-                   l)
+       let lnew = (embedHalfMove x l)
        if isValid lnew
          then return lnew
          else do putStrLn "Invalid move given"

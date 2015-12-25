@@ -1,15 +1,16 @@
 module Game.CubicalDomset.Notation
-       ( PlayerPosition(..)
+       ( toPlayerPosition
+       , fromPlayerPosition
+       , PlayerPosition
        , PiecePosition(..)
        , GlobalPosition(..)
        , toGlobalPosition
-       , toPlayerPosition
-       , fromPlayerPosition
        , fromGlobalPosition)
        where
 
 import qualified Data.Set as Set
 import Data.List (elemIndex)
+import Text.Read
 
 -- Piece positions.
 
@@ -17,22 +18,19 @@ data PiecePosition = V | W | X | Y
                    | One | Two | Three | Four
                    deriving (Eq, Enum, Ord)
 
--- Player position datatype : defined as a set of piece positions
+-- Player position datatype : defined as unordered pair of piece positions
 
-newtype PlayerPosition = PlayerPosition
-                         { getPlayerPosition :: Set.Set PiecePosition
-                         } deriving (Eq, Ord, Read)
+data PlayerPosition = PlayerPosition PiecePosition PiecePosition deriving Ord
 
 -- Convert to and from player positions and pairs of piece positions.
 
 toPlayerPosition :: PiecePosition -> PiecePosition -> PlayerPosition
-toPlayerPosition x y = PlayerPosition $ Set.fromList [x,y]
+toPlayerPosition x y = if x > y then PlayerPosition y x else PlayerPosition x y
 {-# INLINE toPlayerPosition #-}
 
 fromPlayerPosition :: PlayerPosition
                    -> (PiecePosition, PiecePosition)
-fromPlayerPosition s = let [x,y] = Set.toList $ getPlayerPosition s
-                       in  (x,y)
+fromPlayerPosition (PlayerPosition x y) = (x,y)
 {-# INLINE fromPlayerPosition #-}
 
 -- GlobalPosition : an ordered pair of player positions. 
@@ -68,8 +66,25 @@ instance Read PiecePosition where
                      let Just k = elemIndex s showListPiecePosition
                      return ((toEnum k),rem)
 
-instance Show PlayerPosition where
-  show (PlayerPosition x) = show (Set.toList x)
-
 instance Show GlobalPosition where
   show = show . getGlobalPosition 
+
+-- Eq, Read, and Show instances for PlayerPosition
+
+instance Eq PlayerPosition where
+  (PlayerPosition x y) == (PlayerPosition x' y')
+    = (x == x' && y == y') || (x == y') && (y == x')
+
+instance Show PlayerPosition where
+  show = show . fromPlayerPosition
+
+instance Read PlayerPosition where
+  readsPrec _ r = do ("(",s) <- lex r
+                     (p1s,s) <- lex s
+                     (",",s) <- lex s
+                     (p2s,s) <- lex s
+                     (")",t) <- lex s
+                     let p1 = read p1s
+                         p2 = read p2s
+                     return (PlayerPosition p1 p2,t)
+                        
