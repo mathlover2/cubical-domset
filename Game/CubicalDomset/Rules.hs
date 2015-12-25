@@ -11,7 +11,7 @@ import Data.List (nub, inits, sort)
 import Control.Monad
 import Data.Monoid (All(..))
 import Data.Set (empty, fromList, Set,
-                 member, intersection, union,
+                 member, notMember, intersection, union,
                  toList, singleton, (\\))
 import qualified Data.Set as S
 import Data.Tuple (swap)
@@ -74,7 +74,30 @@ forbidden = fromList
             $ map toLink [(V,Four),(W,One),(X,Three),(Y,Two)]
 {-# INLINE forbidden #-}
 
-isConnection = (`member` connections)
+goingFrom :: PiecePosition -> [PiecePosition]
+goingFrom V = [One,Two,Three]
+goingFrom W = [Two,Three,Four]
+goingFrom X = [One,Two,Four]
+goingFrom Y = [One,Three,Four]
+goingFrom One = [V,X,Y]
+goingFrom Two = [V,W,X]
+goingFrom Three = [V,W,Y]
+goingFrom Four = [W,X,Y]
+
+listOfPositions piece1 piece2
+  =  [toPlayerPosition x1 piece2 | x1 <- goingFrom piece1]
+     ++ [toPlayerPosition piece1 x2 | x2 <- goingFrom piece2]
+
+{-# INLINABLE listOfPositions #-}
+
+{-# INLINE goingFrom #-}
+
+
+
+isConnection p
+  | (x,y) <- fromPlayerPosition p = x `elem` inner
+                                    && y `elem` outer
+                                    && p `notMember` forbidden
 {-# INLINE isConnection #-}
 
 -- Yields True if the second position is obtainable by making a move
@@ -143,15 +166,7 @@ class Validatable a where
         PlayerPositionOf piece1 piece2 = getCurrentPlayerPosition g
         imbed' x = imbed GlobalPosition (currentTurn g == Player1)
                    x otherPosition
-        goingFrom p = toList
-                      $ S.foldl union empty
-                      $ S.map (`remove` p)
-                      $ S.filter (p `inConnection`) connections
-        rawMoves = map imbed' $
-                   [toPlayerPosition x1 piece2
-                   | x1 <- goingFrom piece1]
-                   ++ [toPlayerPosition piece1 x2
-                      | x2 <- goingFrom piece2]
+        rawMoves = map imbed' $ listOfPositions piece1 piece2
     in  filter (isValid . (flip embedMove g)) rawMoves
 
 instance Validatable GameRecord where
