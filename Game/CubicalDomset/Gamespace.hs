@@ -8,7 +8,7 @@ import Game.CubicalDomset.Notation
 successors :: GameRecord -> [GameRecord]
 successors g = map (flip embedMove g) (possibleMoves g)
 
-predecessor (GameRecord x b)= GameRecord (init x) (not b)
+predecessor (GameRecord x b)= GameRecord (tail x) (not b)
 
 listOfAllGamesOf :: GameRecord -> [GameRecord]
 listOfAllGamesOf g = analyzeGames g

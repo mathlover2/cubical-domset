@@ -171,14 +171,14 @@ class Validatable a where
     in  filter (isValid . (flip embedMove g)) rawMoves
 
 instance Validatable GameRecord where
-  isValid (GameRecord x _) = and $ map ($ x)
+  isValid (GameRecord x b) = and $ map ($ x)
                            [condition_1,
-                            condition_2,
+                            (condition_2 b),
                             condition_3,
                             condition_4]
-  embedMove x (GameRecord m b) = GameRecord (m++[x]) (not b)
+  embedMove x (GameRecord m b) = GameRecord (x:m) (not b)
   currentTurn (GameRecord _ b) = if b then Player1 else Player2
-  getCurrentPosition (GameRecord x _) = last x
+  getCurrentPosition (GameRecord x _) = head x
 
 instance Validatable ShortGameRecord where
   isValid x = let re = getShortGameRecord x
@@ -197,7 +197,7 @@ instance Validatable ShortGameRecord where
 
 -- Condition 1: The first position in a game record must be the start position.
 
-condition_1 = (== start) . head
+condition_1 = (== start) . last
 {-# INLINE condition_1 #-}
 
 -- Condition 2: In a game record, any two adjacent positions must
@@ -206,11 +206,11 @@ condition_1 = (== start) . head
 -- position must differ between the first and second moves, the second
 -- player's must differ between the second and third, etc.
 
-condition_2 = and
-              . (mapTwist test) -- see helper function below.
-              . (ap zip tail)   -- this is equivalent to @\l -> zip l
-                                -- (tail l)@
-              . map getGlobalPosition
+condition_2 b = and
+                . (mapTwist test) -- see helper function below.
+                . map (if b then (\(x,y) -> (swap x, swap y)) else id)
+                . (\l -> zip l (tail l))
+                . map getGlobalPosition
   where test ((x1,y1),(x2,y2)) = y1 == y2 && isValidMove x1 x2
 
 -- Old version of function:
