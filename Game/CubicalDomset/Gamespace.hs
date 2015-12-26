@@ -1,3 +1,5 @@
+{-# LANGUAGE ViewPatterns, PatternSynonyms #-}
+
 module Game.CubicalDomset.Gamespace
        where
 
@@ -9,7 +11,10 @@ import System.Random
 initialGame = GameRecord [start]
 
 successors :: GameRecord -> [GameRecord]
-successors g = map (flip embedMove g) (possibleMoves g)
+successors g = case getCurrentPosition g
+               of GlobalPosition (Player2Start,_) -> []
+                  GlobalPosition (_,Player1Start) -> []
+                  _ -> map (flip embedMove g) (possibleMoves g)
 
 predecessor (GameRecord x) = GameRecord (init x)
 
