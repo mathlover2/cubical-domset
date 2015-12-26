@@ -1,6 +1,7 @@
 module Game.CubicalDomset.Gamespace
        where
 
+import Data.Maybe (isNothing)
 import Game.CubicalDomset.Rules
 import Game.CubicalDomset.Notation
 
@@ -13,7 +14,7 @@ listOfAllGamesOf :: GameRecord -> [GameRecord]
 listOfAllGamesOf g = analyzeGames g
   where analyzeGames g
           = do x <- successors g
-               if null $ possibleMoves x
+               if not $ isNothing $ hasVictory x
                  then return x
                  else analyzeGames x
 
