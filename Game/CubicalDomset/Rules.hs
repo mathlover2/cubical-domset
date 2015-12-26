@@ -235,6 +235,8 @@ condition_4 = getAll . foldMap (All . disjoint)
   where disjoint (GlobalPosition (p1,p2)) =
           case (fromPlayerPosition p1,fromPlayerPosition p2)
           of ((a,b),(c,d)) -> isUnique [a,b,c,d]
+
+{-# INLINABLE condition_4 #-}
               
 -- Helper functions for this module.
 
@@ -242,9 +244,13 @@ isUnique :: (Eq a) => [a] -> Bool
 isUnique l = all doesNotContain (zip (inits l) l)
   where doesNotContain = uncurry (flip notElem)
 
+{-# INLINABLE isUnique #-}
+
 symmDiff :: (Eq a, Ord a) => Set a -> Set a -> Set a
 symmDiff set1 set2 =
   (union set1 set2) \\ (intersection set1 set2)
+
+{-# INLINABLE symmDiff #-}
 
 mapTwist :: (((a,a),(a,a)) -> b) -> [((a,a),(a,a))] -> [b]
 mapTwist _ [] = []
@@ -254,12 +260,15 @@ mapTwist f (l0:ls)
 inConnection piece conn
   = let (x,y) = fromPlayerPosition conn
     in  piece == x || piece == y
+        
+{-# INLINE inConnection #-}
 
 remove conn piece
   = case fromPlayerPosition conn
     of (x,y) | x == piece -> singleton y
              | y == piece -> singleton x
              | otherwise -> fromList [x,y]
+{-# INLINE remove #-}
 
 imbed f b a1 a2
   = f $ (if b then id else swap) (a1,a2)
