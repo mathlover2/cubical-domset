@@ -41,6 +41,9 @@ gameLength (GameRecord x) = length x
 isFinished :: GameRecord -> Bool
 isFinished = not . isNothing . hasVictory
 
+improperVictory :: GameRecord -> Bool
+improperVictory = null . possibleMoves
+
 randomGame = build initialGame
   where build g = if isFinished g
                   then return g
