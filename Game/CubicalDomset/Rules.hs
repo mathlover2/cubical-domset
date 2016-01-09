@@ -213,6 +213,8 @@ condition_2 b = and
                 . map getGlobalPosition
   where test ((x1,y1),(x2,y2)) = y1 == y2 && isValidMove x1 x2
 
+{-# INLINABLE condition_2 #-}
+
 -- Old version of function:
 --
 -- condition_2 [_] = True
@@ -241,9 +243,7 @@ condition_4 = getAll . foldMap (All . disjoint)
 -- Helper functions for this module.
 
 isUnique :: (Eq a) => [a] -> Bool
-isUnique l = all doesNotContain (zip (inits l) l)
-  where doesNotContain = uncurry (flip notElem)
-
+isUnique l = nub l == l
 {-# INLINABLE isUnique #-}
 
 symmDiff :: (Eq a, Ord a) => Set a -> Set a -> Set a
