@@ -121,11 +121,6 @@ data GameRecord
     , isFirstPlayerTurn :: !Bool
     } deriving (Eq, Show)
 
-newtype ShortGameRecord
-  = ShortGameRecord
-    { getShortGameRecord :: [PlayerPosition]
-    } deriving Eq
-
 -- Try to shorten the mess below:
 class Validatable a where
   isValid :: a -> Bool
@@ -174,26 +169,10 @@ instance Validatable GameRecord where
   isValid (GameRecord x b) = and $ map ($ x)
                            [condition_1,
                             (condition_2 b),
-                            condition_3,
-                            condition_4]
+                            condition_3]
   embedMove x (GameRecord m b) = GameRecord (x:m) (not b)
   currentTurn (GameRecord _ b) = if b then Player1 else Player2
   getCurrentPosition (GameRecord x _) = head x
-
-instance Validatable ShortGameRecord where
-  isValid x = let re = getShortGameRecord x
-              in  condition_3 re
-                  && condition_4 (map GlobalPosition (zip re (tail re)))
-  embedMove x (ShortGameRecord m) = ShortGameRecord (m++[px])
-    where px = getPairMod2 (length m) $ (getGlobalPosition x)
-            where getPairMod2 n = if even n then snd else fst
-  currentTurn (ShortGameRecord x) = toEnum $ ((length x)+1) `mod` 2
-  getCurrentPosition g@(ShortGameRecord x)
-    = GlobalPosition
-      $ (if currentTurn g == Player1
-         then id else swap)
-      $ (last (init x),last x)
--- Conditions for testing validity.
 
 -- Condition 1: The first position in a game record must be the start position.
 
@@ -204,15 +183,22 @@ condition_1 = (== start) . last
 -- differ by exactly one player position, which itself must differ by
 -- exactly one piece position. Furthermore, the first player's
 -- position must differ between the first and second moves, the second
--- player's must differ between the second and third, etc.
+-- player's must differ between the second and third, etc. Finally, no
+-- two pieces share the same position.
 
 condition_2 b = and
                 . (mapTwist test) -- see helper function below.
                 . map (if b then (\(x,y) -> (swap x, swap y)) else id)
                 . (\l -> zip l (tail l))
                 . map getGlobalPosition
-  where test ((x1,y1),(x2,y2)) = y1 == y2 && isValidMove x1 x2
-
+  where test ((x1,y1),(x2,y2)) = y1 == y2
+                                 && isDisjoint x1 y1
+                                 && isDisjoint x2 y1
+                                 && isValidMove x1 x2
+        isDisjoint a b =
+          let (a1,a2) = fromPlayerPosition a
+              (b1,b2) = fromPlayerPosition b
+          in  isUnique [a1,a2,b1,b2]
 {-# INLINABLE condition_2 #-}
 
 -- Old version of function:
@@ -225,21 +211,11 @@ condition_2 b = and
 
 {- Condition 3 : All positions are unique -}
 
-condition_3 :: (Eq a) => [a] -> Bool
+condition_3 :: [GlobalPosition] -> Bool
 condition_3 = isUnique
 
 {-# INLINE condition_3 #-}
-
-{- Condition 4: No two pieces in a move have the same position. -}
-
-condition_4 :: [GlobalPosition] -> Bool
-condition_4 = getAll . foldMap (All . disjoint)
-  where disjoint (GlobalPosition (p1,p2)) =
-          case (fromPlayerPosition p1,fromPlayerPosition p2)
-          of ((a,b),(c,d)) -> isUnique [a,b,c,d]
-
-{-# INLINABLE condition_4 #-}
-              
+             
 -- Helper functions for this module.
 
 isUnique :: (Eq a) => [a] -> Bool
