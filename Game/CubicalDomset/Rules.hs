@@ -1,4 +1,4 @@
-{-# LANGUAGE ViewPatterns, PatternSynonyms #-}
+{-# LANGUAGE ViewPatterns, PatternSynonyms, PatternGuards #-}
 
 module Game.CubicalDomset.Rules
        where
@@ -106,10 +106,10 @@ isConnection p
 isValidMove :: PlayerPosition -> PlayerPosition -> Bool
 isValidMove p1 p2
   = case (fromPlayerPosition p1,fromPlayerPosition p2)
-    of   ((a,b),(c,d)) | isUnique [a,b,c,d] -> False
-                       | [x,y] <- removeDuplicates [a,b,c,d]
-                         -> isConnection (toPlayerPosition x y)
-                       | otherwise -> False
+    of   ((a,b),(c,d))
+           -> case removeDuplicates [a,b,c,d]
+              of [x,y] -> isConnection (toPlayerPosition x y)
+                 _ -> False
 
 -- Game record data. Three types are provided: a long and short
 -- format, and an abbreviated format useful for determining whether a
@@ -124,6 +124,8 @@ data GameRecord
 -- Try to shorten the mess below:
 class Validatable a where
   isValid :: a -> Bool
+  isValid2 :: a -> Bool
+  isValid3 :: a -> Bool
   embedMove :: GlobalPosition -> a -> a
   embedHalfMove :: PlayerPosition -> a -> a
   currentTurn :: a -> Player
@@ -133,7 +135,7 @@ class Validatable a where
   getPlayersPosition :: Player -> a -> PlayerPosition
   getCurrentPlayerPosition :: a -> PlayerPosition
   getWaitingPlayerPosition :: a -> PlayerPosition
-  possibleMoves :: a -> [GlobalPosition]
+  possibleMoves,possibleMoves' :: a -> [GlobalPosition]
   hasVictory :: a -> Maybe Player
 
   embedHalfMove p g = embedMove (GlobalPosition x) g
@@ -163,13 +165,19 @@ class Validatable a where
         imbed' x = imbed GlobalPosition (currentTurn g == Player1)
                    x otherPosition
         rawMoves = map imbed' $ listOfPositions piece1 piece2
-    in  filter (isValid . (flip embedMove g)) rawMoves
-
+    in  filter (isValid2 . (flip embedMove g)) rawMoves
+  possibleMoves' g =
+    let otherPosition = getWaitingPlayerPosition g
+        PlayerPositionOf piece1 piece2 = getCurrentPlayerPosition g
+        imbed' x = imbed GlobalPosition (currentTurn g == Player1)
+                   x otherPosition
+        rawMoves = map imbed' $ listOfPositions piece1 piece2
+    in  filter (isValid3 . (flip embedMove g)) rawMoves
+  
 instance Validatable GameRecord where
-  isValid (GameRecord x b) = and $ map ($ x)
-                           [condition_1,
-                            (condition_2 b),
-                            condition_3]
+  isValid g@(GameRecord x b) = condition_1 x && isValid2 g
+  isValid2 (GameRecord x b) = condition_3 x && condition_2 b x
+  isValid3 (GameRecord x b) = condition_2a b x && condition_3 x
   embedMove x (GameRecord m b) = GameRecord (x:m) (not b)
   currentTurn (GameRecord _ b) = if b then Player1 else Player2
   getCurrentPosition (GameRecord x _) = head x
@@ -191,15 +199,24 @@ condition_2 b = and
                 . map (if b then (\(x,y) -> (swap x, swap y)) else id)
                 . (\l -> zip l (tail l))
                 . map getGlobalPosition
-  where test ((x1,y1),(x2,y2)) = y1 == y2
-                                 && isDisjoint x1 y1
-                                 && isDisjoint x2 y1
-                                 && isValidMove x1 x2
-        isDisjoint a b =
-          let (a1,a2) = fromPlayerPosition a
-              (b1,b2) = fromPlayerPosition b
-          in  isUnique [a1,a2,b1,b2]
+
+test ((x1,y1),(x2,y2)) = y1 == y2
+                         && isDisjoint x1 y1
+                         && isDisjoint x2 y1
+                         && isValidMove x1 x2
+isDisjoint a b =
+  let (a1,a2) = fromPlayerPosition a
+      (b1,b2) = fromPlayerPosition b
+  in  isUnique [a1,a2,b1,b2]
+
 {-# INLINABLE condition_2 #-}
+{-# INLINE test #-}
+{-# INLINE isDisjoint #-}
+
+condition_2a b x
+  = let z = (if b then (\(x,y) -> (swap x, swap y)) else id) $ head
+                $ (\x -> zip x (tail x)) $ map getGlobalPosition x
+    in  test z
 
 -- Old version of function:
 --
@@ -233,6 +250,8 @@ mapTwist _ [] = []
 mapTwist f (l0:ls)
   = f l0 : mapTwist f (map (\(x,y) -> (swap x,swap y)) ls)
 
+{-# INLINABLE mapTwist #-}
+
 inConnection piece conn
   = let (x,y) = fromPlayerPosition conn
     in  piece == x || piece == y
@@ -252,8 +271,7 @@ imbed f b a1 a2
 
 removeDuplicates = f . sort
   where f [] = []
-        f [a,b] | a == b = []
-        f (a:b:c:xs) | a == b && b == c = f (b:c:xs)
-                     | a == b && b /= c = f (c:xs)
-                     | a /= b           = a : f (b:c:xs)
+        f (a:b:xs) = if a == b then xs else a : f (b : xs)
         f x = x 
+
+{-# INLINE removeDuplicates #-}
