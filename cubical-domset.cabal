@@ -21,7 +21,8 @@ library
                  , Game.CubicalDomset.Display
                  , Game.CubicalDomset.Gamespace
   -- other-modules:       
-  -- other-extensions:    
+  -- other-extensions:
+  ghc-options: -dynamic -O
   build-depends:       base >=4.7 && <4.8
                      , containers >=0.5
                      , diagrams-lib

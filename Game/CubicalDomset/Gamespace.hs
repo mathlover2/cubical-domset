@@ -11,7 +11,7 @@ successors :: GameRecord -> [GameRecord]
 successors g = case getCurrentPosition g
                of (GlobalPosition (Player2Start,_)) -> []
                   (GlobalPosition (_,Player1Start)) -> []
-                  _ -> map (flip embedMove g) (possibleMoves g)
+                  _ -> map (flip embedMove g) (possibleMoves' g)
 
 predecessor (GameRecord x b)= GameRecord (tail x) (not b)
 
