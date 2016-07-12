@@ -214,8 +214,10 @@ isDisjoint a b =
 {-# INLINE isDisjoint #-}
 
 condition_2a b x
-  = let z = (if b then (\(x,y) -> (swap x, swap y)) else id) $ head
-                $ (\x -> zip x (tail x)) $ map getGlobalPosition x
+  = let z = (if b then (\(x,y) -> (swap x, swap y)) else id)
+            $ head
+            $ (\x -> zip x (tail x))
+            $ map getGlobalPosition $ take 2 x
     in  test z
 
 -- Old version of function:
